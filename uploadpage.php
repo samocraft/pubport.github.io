@@ -1,330 +1,243 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+
+declare(strict_types=1);
+
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
 error_reporting(E_ALL);
 
 session_start();
+
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.html");
+    header('Location: login.html');
     exit;
 }
-// Logout yaaaaaaanemi
-if (isset($_POST['logout'])) {
-  session_unset();
-  session_destroy();
-  header("Location: login.html");
-  exit;
-}
-?>
 
+if (isset($_POST['logout'])) {
+    session_unset();
+    session_destroy();
+    header('Location: login.html');
+    exit;
+}
+
+require_once __DIR__ . '/includes/ProjectCategory.php';
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$flash = $_SESSION['upload_flash'] ?? null;
+unset($_SESSION['upload_flash']);
+
+$categoryIcons = [
+    'web/mobile app' => 'phone-portrait-outline',
+    'infographics' => 'bar-chart-outline',
+    'video editing' => 'film-outline',
+    'motion graphics' => 'color-wand-outline',
+    '3d art' => 'cube-outline',
+    '3d animations/vfx' => 'sparkles-outline',
+];
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Project Information</title>
-
-    <style>
-        .project-list {
-            list-style-type: none;
-            padding: 0;
-        }
-        .project-item {
-            margin: 10px 0;
-        }
-        .project-img img {
-            max-width: 100%;
-            height: auto;
-            max-height: 200px; /* Set maximum height for consistency */
-            width: auto; /* Ensure images scale proportionally */
-        }
-        .project-title {
-            font-size: 1.5em;
-            margin: 0.5em 0;
-        }
-        .project-subtitle {
-            font-size: 1.2em;
-            color: #777;
-            margin: 0.3em 0;
-        }
-        .project-category {
-            color: #666;
-        }
-        /* Modal styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.8);
-        }
-        .modal-content {
-            margin: auto;
-            display: block;
-            max-width: 90%;
-            max-height: 90%;
-        }
-        .modal-content img {
-            width: 100%;
-            height: auto;
-        }
-        .modal-caption {
-            margin: auto;
-            display: block;
-            text-align: center;
-            color: #ccc;
-            padding: 10px 0;
-            height: 150px;
-        }
-        .close {
-            position: absolute;
-            top: 20px;
-            right: 35px;
-            color: #fff;
-            font-size: 40px;
-            font-weight: bold;
-            transition: 0.3s;
-        }
-        .close:hover,
-        .close:focus {
-            color: #bbb;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        /* Radio buttons styling */
-        .category-options {
-            display: flex;
-            flex-direction: column;
-        }
-        .category-options label {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-            cursor: pointer;
-        }
-        .category-options input[type="radio"] {
-            display: none;
-        }
-        .category-options .custom-radio {
-            display: inline-block;
-            position: relative;
-            padding-left: 35px;
-            cursor: pointer;
-            user-select: none;
-            font-size: 1em;
-        }
-        .category-options .custom-radio::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            height: 20px;
-            width: 20px;
-            background-color: #f1f1f1;
-            border: 2px solid #ddd;
-            border-radius: 50%;
-        }
-        .category-options input[type="radio"]:checked + .custom-radio::before {
-            background-color: #4CAF50; /* Default checked color */
-            border-color: #4CAF50; /* Default checked color */
-        }
-        .category-options input[type="radio"]:checked + .custom-radio.custom-primary::before {
-            background-color: #4CAF50;
-            border-color: #4CAF50;
-        }
-        .category-options input[type="radio"]:checked + .custom-radio.custom-secondary::before {
-            background-color: #FF9800;
-            border-color: #FF9800;
-        }
-        .category-options input[type="radio"]:checked + .custom-radio.custom-tertiary::before {
-            background-color: #03A9F4;
-            border-color: #03A9F4;
-        }
-        .category-options input[type="radio"]:checked + .custom-radio.custom-quaternary::before {
-            background-color: #E91E63;
-            border-color: #E91E63;
-        }
-        .category-options input[type="radio"]:checked + .custom-radio.custom-quinary::before {
-            background-color: #9C27B0;
-            border-color: #9C27B0;
-        }
-        .category-options input[type="radio"]:checked + .custom-radio.custom-senary::before {
-            background-color: #009688;
-            border-color: #009688;
-        }
-    </style>
-
-  <!--
-    - favicon
-  -->
-  <link rel="shortcut icon" href="./assets/images/Screenshot 2024-07-15 185357.png" type="image/x-icon">
-
-  <!--
-    - custom css link
-  -->
-  <link rel="stylesheet" href="./assets/css/style.css">
-  
-  
-
-  <!--
-    - google font link
-  -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-
+    <title>Add Project — Portfolio Admin</title>
+    <link rel="shortcut icon" href="./assets/images/Screenshot 2024-07-15 185357.png" type="image/x-icon">
+    <link rel="stylesheet" href="./assets/css/style.css">
+    <link rel="stylesheet" href="./assets/css/upload.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
-
 <body>
 
-    <!--
-      - #MAIN
-    -->
-  
-    <main>
-  
-      
-  
-      <div class="main-content">
-  
-        <!--
-          - #NAVBAR
-        -->
-  
+<main>
+    <div class="main-content">
         <nav class="navbar">
-  
-          <ul class="navbar-list">
-  
-            <li class="navbar-item">
-              <button class="navbar-link  active" data-nav-link>add project</button>
-            </li>
-  
-          </ul>
-  
+            <ul class="navbar-list">
+                <li class="navbar-item">
+                    <span class="navbar-link active">Add project</span>
+                </li>
+            </ul>
         </nav>
-  
-  
-  
-  
-  
-        <!--
-          - #ABOUT
-        -->
-  
-        <article class="about  active" data-page="about">
-          <br>
-          <br>
-  
-  
-          <header>
-            <h2 class="articletitlenext article-title">add project</h2>
-          </header>
-  
-          <section class="contact-form">
-      
-            
-      
-          
-                 <!-- Updated Form -->
-                 <form action="uploadold.php" class="form" method="POST" enctype="multipart/form-data">
-    <div class="input-wrapper">
-        <input type="text" id="title" name="title" required class="form-input" placeholder="title">
-        <input type="text" id="subtitle" name="subtitle" class="form-input" placeholder="subtitle">
 
-        <label for="images">Upload Images</label>
-        <input type="file" id="images" name="images[]" accept="image/*" multiple required class="form-input">
+        <article class="about active" data-page="about">
+            <header>
+                <h2 class="articletitlenext article-title">Publish work</h2>
+            </header>
 
-        <label for="videos">Upload Videos</label>
-        <input type="file" id="videos" name="videos[]" accept="video/*" multiple required class="form-input">
-
-        <label for="thumbnail">Select Thumbnail</label>
-        <input type="file" id="thumbnail" name="thumbnail" accept="image/*" required class="form-input">
-
-                        <!-- Category Options (unchanged) -->
-                        <div class="category-options">
-                    <label for="web_mobile_app" style="color: #ffffff;">
-                        <input type="radio" id="web_mobile_app" name="category" value="web/mobile app" required>
-                        <span class="custom-radio custom-primary">Web/Mobile App</span>
-                    </label>
-                    <label for="infographics" style="color: #ffffff;">
-                        <input type="radio" id="infographics" name="category" value="infographics" required>
-                        <span class="custom-radio custom-secondary">infographics</span>
-                    </label>
-                    <label for="video_editing" style="color: #ffffff;">
-                        <input type="radio" id="video_editing" name="category" value="video editing" required>
-                        <span class="custom-radio custom-tertiary">Video editing</span>
-                    </label>
-                    <label for="motion_graphics" style="color: #ffffff;">
-                        <input type="radio" id="motion_graphics" name="category" value="motion graphics" required>
-                        <span class="custom-radio custom-quaternary">Motion Graphics</span>
-                    </label>
-                    <label for="3d_art" style="color: #ffffff;">
-                        <input type="radio" id="3d_art" name="category" value="3d art" required>
-                        <span class="custom-radio custom-quinary">3d Art</span>
-                    </label>
-                    <label for="3d_animations_vfx" style="color: #ffffff;">
-                        <input type="radio" id="3d_animations_vfx" name="category" value="3d animations/vfx" required>
-                        <span class="custom-radio custom-senary">3d animations/vfx</span>
-                    </label>
+            <section class="upload-page">
+                <?php if (is_array($flash)): ?>
+                <div class="upload-flash upload-flash--<?php echo htmlspecialchars((string) $flash['type'], ENT_QUOTES, 'UTF-8'); ?>" role="alert">
+                    <ion-icon name="<?php echo ($flash['type'] ?? '') === 'success' ? 'checkmark-circle' : 'alert-circle'; ?>-outline"></ion-icon>
+                    <span><?php echo htmlspecialchars((string) ($flash['message'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
-                        <br><br>
+                <?php endif; ?>
 
-                        <!-- Submission button -->
-                        <div style="display: flex; justify-content: center; align-items: center;">
-                        <button class="form-btn" type="submit">
-            <ion-icon name="paper-plane"></ion-icon>
-            <span>Upload</span>
-        </button>
+                <div class="upload-stepper" aria-label="Upload progress">
+                    <div class="upload-step is-active" data-upload-step>
+                        <span class="upload-step__dot">1</span>
+                        <span class="upload-step__label">Details</span>
+                    </div>
+                    <div class="upload-step" data-upload-step>
+                        <span class="upload-step__dot">2</span>
+                        <span class="upload-step__label">Thumbnail</span>
+                    </div>
+                    <div class="upload-step" data-upload-step>
+                        <span class="upload-step__dot">3</span>
+                        <span class="upload-step__label">Gallery</span>
+                    </div>
+                    <div class="upload-step" data-upload-step>
+                        <span class="upload-step__dot">4</span>
+                        <span class="upload-step__label">Review</span>
+                    </div>
+                </div>
+
+                <form id="upload-project-form" class="upload-form form" action="uploadold.php" method="post" enctype="multipart/form-data" novalidate>
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
+
+                    <!-- Step 1: Details -->
+                    <div class="upload-panel is-active" data-upload-panel>
+                        <h3 class="upload-panel__title">Project details</h3>
+                        <p class="upload-panel__hint">Title and category appear on your portfolio grid and post view.</p>
+
+                        <div class="upload-field">
+                            <label for="title">Title <span aria-hidden="true">*</span></label>
+                            <input type="text" id="title" name="title" class="form-input" placeholder="Project name" required maxlength="200" autocomplete="off">
+                        </div>
+
+                        <div class="upload-field">
+                            <label for="subtitle">Subtitle</label>
+                            <input type="text" id="subtitle" name="subtitle" class="form-input" placeholder="Short tagline (optional)" maxlength="300" autocomplete="off">
+                        </div>
+
+                        <div class="upload-field">
+                            <p class="upload-field__legend" id="category-label">Category <span aria-hidden="true">*</span></p>
+                            <div class="upload-categories" role="radiogroup" aria-labelledby="category-label">
+                                <?php foreach (ProjectCategory::all() as $category): ?>
+                                <?php $icon = $categoryIcons[$category->value] ?? 'folder-outline'; ?>
+                                <label class="upload-category">
+                                    <input type="radio" name="category" value="<?php echo htmlspecialchars($category->value, ENT_QUOTES, 'UTF-8'); ?>" required>
+                                    <span class="upload-category__card">
+                                        <ion-icon name="<?php echo htmlspecialchars($icon, ENT_QUOTES, 'UTF-8'); ?>"></ion-icon>
+                                        <?php echo htmlspecialchars($category->label(), ENT_QUOTES, 'UTF-8'); ?>
+                                    </span>
+                                </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Thumbnail -->
+                    <div class="upload-panel" data-upload-panel>
+                        <h3 class="upload-panel__title">Thumbnail</h3>
+                        <p class="upload-panel__hint">Square or landscape cover image for the portfolio grid. Max 5MB — JPG, PNG, GIF, or WebP.</p>
+
+                        <div class="upload-drop upload-drop--thumb">
+                            <input type="file" id="thumbnail" name="thumbnail" accept="image/jpeg,image/png,image/gif,image/webp" required>
+                            <ion-icon class="upload-drop__icon" name="image-outline"></ion-icon>
+                            <p class="upload-drop__text">Drop thumbnail here</p>
+                            <p class="upload-drop__sub">or tap to browse</p>
+                        </div>
+                        <div class="upload-thumb-preview" data-thumb-preview aria-live="polite"></div>
+                    </div>
+
+                    <!-- Step 3: Gallery -->
+                    <div class="upload-panel" data-upload-panel>
+                        <h3 class="upload-panel__title">Gallery media</h3>
+                        <p class="upload-panel__hint">Add at least one image or video. You can include both. Images up to 10MB, videos up to 100MB.</p>
+
+                        <div class="upload-field">
+                            <label>Images</label>
+                            <div class="upload-drop">
+                                <input type="file" id="images" name="images[]" accept="image/jpeg,image/png,image/gif,image/webp" multiple>
+                                <ion-icon class="upload-drop__icon" name="images-outline"></ion-icon>
+                                <p class="upload-drop__text">Add images</p>
+                                <p class="upload-drop__sub">Multiple files allowed</p>
+                            </div>
+                            <div class="upload-previews" data-images-preview></div>
+                        </div>
+
+                        <div class="upload-field">
+                            <label>Videos</label>
+                            <div class="upload-drop">
+                                <input type="file" id="videos" name="videos[]" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska" multiple>
+                                <ion-icon class="upload-drop__icon" name="videocam-outline"></ion-icon>
+                                <p class="upload-drop__text">Add videos</p>
+                                <p class="upload-drop__sub">MP4, MOV, WebM, AVI, MKV</p>
+                            </div>
+                            <div class="upload-previews" data-videos-preview></div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Review -->
+                    <div class="upload-panel" data-upload-panel>
+                        <h3 class="upload-panel__title">Review &amp; publish</h3>
+                        <p class="upload-panel__hint">Confirm everything looks right before publishing to the portfolio.</p>
+
+                        <div class="upload-review">
+                            <dl>
+                                <div>
+                                    <dt>Title</dt>
+                                    <dd data-review-title>—</dd>
+                                </div>
+                                <div>
+                                    <dt>Subtitle</dt>
+                                    <dd data-review-subtitle>—</dd>
+                                </div>
+                                <div>
+                                    <dt>Category</dt>
+                                    <dd data-review-category>—</dd>
+                                </div>
+                                <div>
+                                    <dt>Thumbnail</dt>
+                                    <dd data-review-thumb>—</dd>
+                                </div>
+                                <div>
+                                    <dt>Gallery</dt>
+                                    <dd data-review-media>—</dd>
+                                </div>
+                            </dl>
+                        </div>
+                    </div>
+
+                    <div class="upload-actions">
+                        <button type="button" class="form-btn form-btn--ghost" data-upload-prev hidden>Back</button>
+                        <div class="upload-actions__group">
+                            <button type="button" class="form-btn" data-upload-next>Continue</button>
+                            <button type="submit" class="form-btn" data-upload-submit hidden>
+                                <ion-icon name="cloud-upload-outline"></ion-icon>
+                                <span>Publish project</span>
+                            </button>
                         </div>
                     </div>
                 </form>
 
-              
-            
-
-              <button class="form-btn" type="submit" value="Logout" style="display: flex; justify-content: center; align-items: center;">
-              <ion-icon name="exit-outline"></ion-icon>
-                <span>logout</span>
-              </button>
-              <br>
-              
-
-              <a href="index.php" class="nav-button">
-  <button type="button" class="form-btn">
-    <ion-icon name="home-outline"></ion-icon>
-    <span>Home</span>
-  </button>
-</a>
-
-              
-              
-             
-
-      
-          </section>
+                <div class="upload-toolbar">
+                    <a href="index.php?page=portfolio" class="form-btn form-btn--ghost">
+                        <ion-icon name="grid-outline"></ion-icon>
+                        <span>View portfolio</span>
+                    </a>
+                    <a href="index.php" class="form-btn form-btn--ghost">
+                        <ion-icon name="home-outline"></ion-icon>
+                        <span>Home</span>
+                    </a>
+                    <form action="logout.php" method="post" style="display:inline">
+                        <button type="submit" class="form-btn form-btn--ghost">
+                            <ion-icon name="exit-outline"></ion-icon>
+                            <span>Log out</span>
+                        </button>
+                    </form>
+                </div>
+            </section>
         </article>
-  
-      </div>
-  
-    </main>
-  
-  
-    <!--
-      - custom js link
-    -->
-    <script src="./assets/js/script.js"></script>
-  
-    <!--
-      - ionicon link
-    -->
-    <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
-    <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
-  
-  </body>
-  
-  </html>
+    </div>
+</main>
+
+<script src="./assets/js/upload.js"></script>
+<script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+<script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+</body>
+</html>

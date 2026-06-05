@@ -33,6 +33,8 @@ $all_data = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     - custom css link
   -->
   <link rel="stylesheet" href="./assets/css/style.css">
+  <link rel="stylesheet" href="./assets/css/ig-post-overlay.css">
+  <link rel="stylesheet" href="./assets/css/portfolio.css">
   
 
   <!--
@@ -230,6 +232,8 @@ $all_data = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
   
 <!-- Just before the closing body tag -->
 <script src="./assets/js/script.js"></script>
+<script src="./assets/js/ig-post-overlay.js"></script>
+<script src="./assets/js/portfolio.js" defer></script>
 
 </body>
 </html>

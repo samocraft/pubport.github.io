@@ -1,469 +1,203 @@
 <?php
-
-// Display errors for debugging
-
 ini_set('display_errors', 1);
-
 ini_set('display_startup_errors', 1);
-
 error_reporting(E_ALL);
 
+require_once 'connection.php';
 
-
-// Include the database connection
-
-require_once 'connection.php'; // Assuming this file sets up $pdo
-
-
-
-// Check if 'id' is passed in the query string
-
-if (isset($_GET['id'])) {
-
-    $id = intval($_GET['id']); // Sanitize the ID
-
-
-
-    // Prepare and execute the query to fetch project details by ID
-
-    $stmt = $pdo->prepare("SELECT * FROM projects WHERE id = :id");
-
-    $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-
-    $stmt->execute();
-
-
-
-    // Fetch the project data
-
-    $project = $stmt->fetch(PDO::FETCH_ASSOC);
-
-
-
-    if (!$project) {
-
-        echo "Project not found.";
-
-        exit;
-
-    }
-
-
-
-    // Fetch the associated media for the project
-
-    $mediaStmt = $pdo->prepare("SELECT media_file, media_type, position FROM media WHERE project_id = :project_id ORDER BY position ASC");
-
-    $mediaStmt->bindParam(':project_id', $id, PDO::PARAM_INT);
-
-    $mediaStmt->execute();
-
-    $mediaItems = $mediaStmt->fetchAll(PDO::FETCH_ASSOC);
-
-
-
-    // Fetch similar projects based on category or other criteria
-
-    $similarStmt = $pdo->prepare("SELECT * FROM projects WHERE category = :category AND id != :id LIMIT 3");
-
-    $similarStmt->bindParam(':category', $project['category'], PDO::PARAM_STR);
-
-    $similarStmt->bindParam(':id', $id, PDO::PARAM_INT);
-
-    $similarStmt->execute();
-
-    $similarProjects = $similarStmt->fetchAll(PDO::FETCH_ASSOC);
-
-
-
-} else {
-
-    echo "No project ID specified.";
-
+if (!isset($_GET['id'])) {
+    echo '<p class="ig-post__empty">No project ID specified.</p>';
     exit;
-
 }
 
+$id = (int) $_GET['id'];
 
+$stmt = $pdo->prepare('SELECT * FROM projects WHERE id = :id');
+$stmt->bindParam(':id', $id, PDO::PARAM_INT);
+$stmt->execute();
+$project = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Function to safely escape values or return an empty string if null
+if (!$project) {
+    echo '<p class="ig-post__empty">Project not found.</p>';
+    exit;
+}
+
+$mediaStmt = $pdo->prepare(
+    'SELECT media_file, media_type, position FROM media WHERE project_id = :project_id ORDER BY position ASC'
+);
+$mediaStmt->bindParam(':project_id', $id, PDO::PARAM_INT);
+$mediaStmt->execute();
+$mediaItems = $mediaStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$similarStmt = $pdo->prepare(
+    'SELECT * FROM projects WHERE category = :category AND id != :id LIMIT 3'
+);
+$similarStmt->bindParam(':category', $project['category'], PDO::PARAM_STR);
+$similarStmt->bindParam(':id', $id, PDO::PARAM_INT);
+$similarStmt->execute();
+$similarProjects = $similarStmt->fetchAll(PDO::FETCH_ASSOC);
 
 function safe_escape($value) {
-
-    return $value !== null ? htmlspecialchars($value) : '';
-
+    return $value !== null ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : '';
 }
 
+function ig_hashtag($category) {
+    $slug = preg_replace('/[^a-z0-9]+/i', '', strtolower($category ?? ''));
+    return $slug ? '#' . $slug : '';
+}
+
+$username = 'oussama.seddiki';
+$avatar = './assets/images/my-avatar.png';
+$slideCount = count($mediaItems);
+$likeBase = max(12, ($id * 47) % 900 + 100);
+$categoryTag = ig_hashtag($project['category']);
+$instaUrl = 'https://www.instagram.com/oussama.seddiki1/';
 ?>
 
+<link rel="stylesheet" href="./assets/css/ig-post-overlay.css">
 
+<article class="ig-post" tabindex="0" aria-label="Post by <?php echo safe_escape($username); ?>">
 
+    <section class="ig-post__media" aria-label="Post media" data-ig-swipe>
+        <div class="ig-post__media-top">
+            <a class="ig-post__media-profile" href="<?php echo safe_escape($instaUrl); ?>" target="_blank" rel="noopener noreferrer">
+                <img src="<?php echo safe_escape($avatar); ?>" alt="">
+                <span><?php echo safe_escape($username); ?></span>
+            </a>
+        </div>
+        <div class="ig-post__carousel">
+            <?php if ($slideCount > 0): ?>
+                <?php foreach ($mediaItems as $i => $media): ?>
+                <?php
+                $ext = strtolower(pathinfo($media['media_file'], PATHINFO_EXTENSION));
+                $isVideo = in_array($ext, ['mp4', 'avi', 'mkv', 'mov', 'webm'], true);
+                ?>
+                <div class="ig-post__slide<?php echo $i === 0 ? ' is-active' : ''; ?>">
+                    <?php if ($isVideo): ?>
+                    <video controls playsinline preload="metadata">
+                        <source src="<?php echo safe_escape($media['media_file']); ?>" type="video/<?php echo safe_escape($ext); ?>">
+                    </video>
+                    <?php else: ?>
+                    <img src="<?php echo safe_escape($media['media_file']); ?>" alt="<?php echo safe_escape($project['title']); ?>">
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
 
-
-<div >
-
-    <div class="project-details">
-
-      <div class="h2" style="display: flex;
-
-          justify-content: center;
-
-          align-items: center;">
-
-        <h1 style="padding-top: 30px;" ><?php echo safe_escape($project['title']); ?></h1>
-
-      </div>
-
-
-
-      <div style="display: flex;
-
-          justify-content: center;
-
-          align-items: center;">
-
-          <p style="padding-bottom: 20px;" class="project-category"><?php echo safe_escape($project['subtitle']); ?></p>
-
-          </div>
-
-        
-
-    </div>
-
-
-
-    <!-- Project gallery (images/videos) -->
-
-    <div class="project-gallery">
-
-        <?php foreach ($mediaItems as $media): ?>
-
-            <?php 
-
-            $fileExtension = pathinfo($media['media_file'], PATHINFO_EXTENSION);
-
-            $isVideo = in_array($fileExtension, ['mp4', 'avi', 'mkv', 'mov']); 
-
-            ?>
-
-            <?php if ($isVideo): ?>
-
-                <video controls>
-
-                    <source src="<?php echo safe_escape($media['media_file']); ?>" type="video/<?php echo $fileExtension; ?>">
-
-                    Your browser does not support the video tag.
-
-                </video>
+                <?php if ($slideCount > 1): ?>
+                <button type="button" class="ig-post__nav ig-post__nav--prev" aria-label="Previous">
+                    <ion-icon name="chevron-back"></ion-icon>
+                </button>
+                <button type="button" class="ig-post__nav ig-post__nav--next" aria-label="Next">
+                    <ion-icon name="chevron-forward"></ion-icon>
+                </button>
+                <div class="ig-post__dots" role="tablist" aria-label="Carousel pagination">
+                    <?php for ($d = 0; $d < $slideCount; $d++): ?>
+                    <button type="button" class="ig-post__dot<?php echo $d === 0 ? ' is-active' : ''; ?>" aria-label="Go to slide <?php echo $d + 1; ?>"></button>
+                    <?php endfor; ?>
+                </div>
+                <?php endif; ?>
 
             <?php else: ?>
-
-                <img src="<?php echo safe_escape($media['media_file']); ?>" alt="Project Media">
-
+                <div class="ig-post__slide is-active">
+                    <img src="<?php echo safe_escape($project['thumbnail']); ?>" alt="<?php echo safe_escape($project['title']); ?>">
+                </div>
             <?php endif; ?>
+        </div>
+    </section>
 
-        <?php endforeach; ?>
+    <aside class="ig-post__panel">
+        <div class="ig-post__sheet-head">
+            <button type="button" class="ig-post__sheet-toggle" aria-expanded="false" aria-controls="ig-post-sheet-content">
+                <span class="ig-post__sheet-handle" aria-hidden="true"></span>
+                <span class="ig-post__sheet-peek">
+                    <strong><?php echo safe_escape($project['title']); ?></strong>
+                    <?php if (!empty($project['subtitle'])): ?>
+                    <span class="ig-post__sheet-peek-sub"><?php echo safe_escape($project['subtitle']); ?></span>
+                    <?php endif; ?>
+                </span>
+                <ion-icon name="chevron-up-outline" class="ig-post__sheet-chevron" aria-hidden="true"></ion-icon>
+            </button>
+        </div>
 
-    </div>
-    <script>
-    function openFullScreen(image) {
-        // Check if the device is in mobile view
-        if (window.innerWidth <= 768) { 
-            if (image.requestFullscreen) {
-                image.requestFullscreen();
-            } else if (image.webkitRequestFullscreen) { // Safari compatibility
-                image.webkitRequestFullscreen();
-            } else if (image.msRequestFullscreen) { // IE11 compatibility
-                image.msRequestFullscreen();
-            }
-        }
-    }
-</script>
+        <div class="ig-post__sheet-content" id="ig-post-sheet-content">
+        <header class="ig-post__header">
+            <a class="ig-post__profile" href="<?php echo safe_escape($instaUrl); ?>" target="_blank" rel="noopener noreferrer">
+                <img class="ig-post__avatar" src="<?php echo safe_escape($avatar); ?>" alt="">
+                <span class="ig-post__username"><?php echo safe_escape($username); ?></span>
+            </a>
+            <button type="button" class="ig-post__menu" aria-label="More options">•••</button>
+        </header>
 
-    <br><br>
+        <div class="ig-post__thread">
+            <div class="ig-post__comment">
+                <img class="ig-post__comment-avatar" src="<?php echo safe_escape($avatar); ?>" alt="">
+                <div class="ig-post__comment-body">
+                    <a class="ig-post__comment-user" href="<?php echo safe_escape($instaUrl); ?>" target="_blank" rel="noopener noreferrer"><?php echo safe_escape($username); ?></a>
+                    <?php echo safe_escape($project['title']); ?>
+                    <?php if (!empty($project['subtitle'])): ?>
+                    <br><?php echo safe_escape($project['subtitle']); ?>
+                    <?php endif; ?>
+                    <?php if ($categoryTag): ?>
+                    <span class="ig-post__hashtag"> <?php echo safe_escape($categoryTag); ?></span>
+                    <?php endif; ?>
+                    <span class="ig-post__comment-meta">
+                        <time datetime="PT1H">1h</time>
+                        <button type="button">Reply</button>
+                    </span>
+                </div>
+            </div>
 
-    <!-- Similar Projects -->
-    <div class="h2" style="display: flex; justify-content: left; align-items: center;">
-        <h1 style="padding-bottom: 10px;">Similar Projects</h1>
-    </div>
-    
-    <ul class="project-list">
-        <?php if (!empty($similarProjects)): ?>
-            <?php foreach ($similarProjects as $similar): ?>
-                <li class="project-item active" data-filter-item data-category="<?php echo htmlspecialchars($similar['category'] ?? ''); ?>">
-                    <a href="#" class="open-overlay" data-project-id="<?php echo htmlspecialchars($similar['id']); ?>">
-                        <figure class="project-img">
-                            <div class="project-item-icon-box">
-                                <ion-icon name="eye-outline"></ion-icon>
-                            </div>
-                            <div class="img-wrapper" style="background-image: url('<?php echo htmlspecialchars($similar['thumbnail']); ?>');"></div>
-                        </figure>
-                        <h3 class="project-title"><?php echo htmlspecialchars($similar['title']); ?></h3>
-                        <p class="project-category"><?php echo htmlspecialchars($similar['subtitle'] ?? ''); ?></p>
+            <?php if (!empty($similarProjects)): ?>
+            <p class="ig-post__more-label">More posts</p>
+            <ul class="ig-post__more-grid">
+                <?php foreach ($similarProjects as $similar): ?>
+                <li>
+                    <a href="#" class="open-overlay" data-project-id="<?php echo (int) $similar['id']; ?>" aria-label="<?php echo safe_escape($similar['title']); ?>">
+                        <div class="ig-post__thumb" style="background-image:url('<?php echo safe_escape($similar['thumbnail']); ?>')"></div>
                     </a>
                 </li>
-            <?php endforeach; ?>
-        <?php else: ?>
-            <li>No similar projects found.</li>
-        <?php endif; ?>
-    </ul>
-</div>
-
-
-
-<script>
-document.querySelectorAll('.open-overlay').forEach(item => {
-    item.addEventListener('click', function(event) {
-        event.preventDefault();
-        const projectId = this.getAttribute('data-project-id');
-        
-        // Fetch new project details using AJAX
-        fetch(`overlay.php?id=${projectId}`)
-            .then(response => response.text())
-            .then(data => {
-                // Replace modal content with the new project data
-                document.querySelector('.testimonials-modalover .modalover-content').innerHTML = data;
-                
-                // Reinitialize event listeners for the new similar projects
-                initSimilarProjectListeners();
-            })
-            .catch(error => console.error('Error fetching project:', error));
-    });
-});
-
-// Function to reinitialize listeners
-function initSimilarProjectListeners() {
-    document.querySelectorAll('.open-overlay').forEach(item => {
-        item.removeEventListener('click', function(event) {
-            // Reattach event listener code here as needed
-        });
-    });
-}
-</script>
-
-
-
-
-
-
-</div>
-
-
-
-<!-- Your CSS for the overlaypage -->
-
-<style>
-
-        
-
-        .modalover-container {
-
-            position: fixed;
-
-          top: 0;
-
-          left: 0;
-
-          width: 100%;
-
-          height: 100%;
-
-          display: flex;
-
-          justify-content: center;
-
-          align-items: center;
-
-          z-index: 20;
-
-          pointer-events: none;
-
-          visibility: hidden;
-
-          overflow-y: auto;
-
-          
-
-        }
-
-        
-
-        .modalover-container.active {
-
-          pointer-events: all;
-
-          visibility: visible;
-
-        }
-
-        
-
-        .overlaypage {
-
-            position: fixed;
-
-          top: 0;
-
-          left: 0;
-
-          width: 100%;
-
-          height: 100vh;
-
-          backdrop-filter: blur(10px); /* Blur the background */
-
-          background: rgba(0, 0, 0, 0.3); /* Darken the background */
-
-          opacity: 1;
-
-          visibility: hidden;
-
-          pointer-events: none;
-
-          z-index: 1;
-
-          transition: var(--transition-1);
-
-        }
-
-        
-
-        .overlaypage.active {
-
-          visibility: visible;
-
-          pointer-events: all;
-
-        }
-
-        
-
-        .testimonials-modalover {
-
-            background: var(--eerie-black-2);
-
-          position: relative;
-
-          padding: 1%;
-
-          border: 1px solid var(--jet);
-
-          border-radius: 14px;
-
-          box-shadow: var(--shadow-5);
-
-          transform: scale(1.2);
-
-          opacity: 0;
-
-          transition: var(--transition-1);
-
-          z-index: 2;
-
-          width: 90%; /* Fixed width */
-
-          max-width: 1500px; /* Limit max width */
-
-          max-height: 90%; /* Keep the modal within viewport */
-
-         
-
-          overflow-y: auto; /* Enable internal scrolling */
-
-          
-
-          
-
-        }
-
-        
-
-        .modalover-container.active .testimonials-modalover {
-
-          transform: scale(1);
-
-          opacity: 1;
-
-        }
-
-        
-
-        .modalover-close-btn {
-
-          position: absolute;
-
-          top: 1%;
-
-          right: 15px;
-
-          background: var(--onyx);
-
-          border-radius: 8px;
-
-          width: 32px;
-
-          height: 32px;
-
-          display: flex;
-
-          justify-content: center;
-
-          align-items: center;
-
-          color: var(--white-2);
-
-          font-size: 18px;
-
-          opacity: 0.7;
-
-        }
-
-        
-
-        .modalover-close-btn:hover,
-
-        .modalover-close-btn:focus {
-
-          opacity: 1;
-
-        }
-
-        
-
-        .modalover-close-btn ion-icon {
-
-          --ionicon-stroke-width: 50px;
-
-        }
-
-        
-
-        .modalover-title {
-
-          margin-bottom: 4px;
-
-        }
-
-        
-
-        /* Set consistent width for all media (images and videos) */
-
-.project-gallery img,
-
-.project-gallery video {
-
-  width: 100%; /* This ensures all media takes up the full width of the container */
-
-  height: auto; /* Maintains aspect ratio */
-
-  display: block;
-
-  margin: 0 auto; /* Center the media horizontally */
-
-  max-width: 100%; /* Optionally, set a maximum width */
-
-}
-
-
-            </style>
-
+                <?php endforeach; ?>
+            </ul>
+            <?php endif; ?>
+        </div>
+        </div><!-- .ig-post__sheet-content -->
+
+        <footer class="ig-post__footer">
+            <div class="ig-post__actions">
+                <div class="ig-post__actions-left">
+                    <button type="button" class="ig-post__action" data-ig-like aria-label="Like">
+                        <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16.792 3.904A4.989 4.989 0 0 0 12 2.05a4.988 4.988 0 0 0-4.792 3.854A8.978 8.978 0 0 0 2.05 12c0 5.523 4.477 10 10 10s10-4.477 10-10a8.978 8.978 0 0 0-4.158-8.096z"/></svg>
+                    </button>
+                    <button type="button" class="ig-post__action" aria-label="Comment">
+                        <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.656 17.008a9.993 9.993 0 1 0-3.59 3.615L22 22z"/></svg>
+                    </button>
+                    <button type="button" class="ig-post__action" aria-label="Share">
+                        <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
+                <button type="button" class="ig-post__action" aria-label="Save">
+                    <svg aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="20 21 12 15 4 21 4 3 20 3 20 21"/></svg>
+                </button>
+            </div>
+
+            <p class="ig-post__likes" data-ig-like-count data-base="<?php echo (int) $likeBase; ?>">
+                <?php echo number_format($likeBase); ?> likes
+            </p>
+
+            <p class="ig-post__caption-preview">
+                <a class="ig-post__comment-user" href="<?php echo safe_escape($instaUrl); ?>" target="_blank" rel="noopener noreferrer"><?php echo safe_escape($username); ?></a>
+                <?php echo safe_escape($project['title']); ?>
+                <?php if (!empty($project['subtitle'])): ?>
+                <span class="ig-post__caption-muted"> — <?php echo safe_escape($project['subtitle']); ?></span>
+                <?php endif; ?>
+            </p>
+
+            <time class="ig-post__time" datetime="PT1H">1 hour ago</time>
+
+            <form class="ig-post__composer" action="#" onsubmit="return false;">
+                <input type="text" placeholder="Add a comment…" aria-label="Add a comment" autocomplete="off">
+                <button type="submit" class="ig-post__composer-post" disabled>Post</button>
+            </form>
+        </footer>
+    </aside>
+</article>

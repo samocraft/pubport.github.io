@@ -1,303 +1,158 @@
 <?php
-include 'connection.php'; // Include your database connection file
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/connection.php';
+
+$all_data = [];
 
 try {
-    $stmt = $pdo->prepare("SELECT * FROM projects");
+    $stmt = $pdo->prepare('SELECT * FROM projects ORDER BY id DESC');
     $stmt->execute();
     $all_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    echo "Error: " . $e->getMessage();
+    $portfolio_error = 'Could not load projects. Please try again later.';
+}
+
+$project_count = count($all_data);
+
+$categories = [
+    'all' => ['label' => 'All work', 'icon' => 'grid-outline'],
+    'web/mobile app' => ['label' => 'Apps', 'icon' => 'phone-portrait-outline'],
+    'infographics' => ['label' => 'Infographics', 'icon' => 'bar-chart-outline'],
+    'video editing' => ['label' => 'Video', 'icon' => 'film-outline'],
+    'motion graphics' => ['label' => 'Motion', 'icon' => 'color-wand-outline'],
+    '3d art' => ['label' => '3D Art', 'icon' => 'cube-outline'],
+    '3d animations/vfx' => ['label' => 'VFX', 'icon' => 'sparkles-outline'],
+];
+
+function pf_category_label(string $slug, array $categories): string
+{
+    return $categories[$slug]['label'] ?? ucwords(str_replace('/', ' ', $slug));
 }
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio</title>
-    
-    <link rel="stylesheet" href="./assets/css/style.css">
-    <link rel="shortcut icon" href="./assets/images/Screenshot 2024-07-15 185357.png" type="image/x-icon">
-    <script src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+<link rel="stylesheet" href="./assets/css/portfolio.css">
 
-    <style>
-       
-        /* Responsive filter styles */
-        .filter-select-box {
-            position: relative;
-            margin-bottom: 25px;
-            display: none; /* Default hidden, shown only on mobile */
-        }
+<section class="portfolio-wrap projects" aria-label="Portfolio gallery">
 
-        .filter-select {
-            background: var(--eerie-black-2);
-            color: var(--light-gray);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-            padding: 12px 16px;
-            border: 1px solid var(--jet);
-            border-radius: 14px;
-            font-size: var(--fs-6);
-            font-weight: var(--fw-300);
-            cursor: pointer;
-        }
-
-        .filter-select.active .select-icon {
-            transform: rotate(0.5turn);
-        }
-
-        .select-list {
-            background: var(--eerie-black-2);
-            position: absolute;
-            top: calc(100% + 6px);
-            width: 100%;
-            padding: 6px;
-            border: 1px solid var(--jet);
-            border-radius: 14px;
-            z-index: 2;
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-            transition: opacity 0.15s ease-in-out, visibility 0.15s ease-in-out;
-        }
-
-        .filter-select.active + .select-list {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: all;
-        }
-
-        .select-item button {
-            background: var(--eerie-black-2);
-            color: var(--light-gray);
-            font-size: var(--fs-6);
-            font-weight: var(--fw-300);
-            text-transform: capitalize;
-            width: 100%;
-            padding: 8px 10px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        .select-item button:hover {
-            background: hsl(240, 2%, 20%);
-        }
-
-        /* Filter list for larger screens */
-        .filter-list {
-            display: flex;
-            justify-content: flex-start;
-            align-items: center;
-            gap: 25px;
-            padding-left: 5px;
-            margin-bottom: 30px;
-        }
-
-        .filter-item button {
-            color: var(--light-gray);
-            font-size: var(--fs-5);
-            transition: color 0.3s;
-            cursor: pointer;
-            border: none;
-            background: none;
-        }
-
-        .filter-item button:hover {
-            color: var(--light-gray-70);
-        }
-
-        .filter-item button.active {
-            color: var(--orange-yellow-crayola);
-        }
-
-        /* Responsive layout for mobile */
-        @media (max-width: 768px) {
-            .filter-list {
-                display: none;
-            }
-
-            .filter-select-box {
-                display: block;
-            }
-        }
-    </style>
-</head>
-<body>
-
-<header>
-    <h2 class="articletitlenext article-title">Portfolio</h2>
-</header>
-
-<!-- Filter list for larger screens -->
-<ul class="filter-list">
-        <li class="filter-item"><button class="active" data-filter="all">All</button></li>
-        <li class="filter-item"><button data-filter="web/mobile app">Web/Mobile App</button></li>
-        <li class="filter-item"><button data-filter="infographics">Infographics</button></li>
-        <li class="filter-item"><button data-filter="video editing">Video Editing</button></li>
-        <li class="filter-item"><button data-filter="motion graphics">Motion Graphics</button></li>
-        <li class="filter-item"><button data-filter="3d art">3D Art</button></li>
-        <li class="filter-item"><button data-filter="3d animations/vfx">3D Animations/VFX</button></li>
-    </ul>
-
-    <!-- Filter select for mobile/responsive design -->
-    <div class="filter-select-box">
-        <div class="filter-select" data-select>
-            <span class="select-value">Select Category</span>
-            <ion-icon name="chevron-down"></ion-icon>
+    <header class="portfolio-hero">
+        <div class="portfolio-hero__copy">
+            <p class="portfolio-hero__eyebrow">Creative direction</p>
+            <h2 class="portfolio-hero__title article-title">Portfolio</h2>
+            <p class="portfolio-hero__desc">
+                A curated selection of design, motion, and visual work. Filter by discipline or open any piece for the full story.
+            </p>
         </div>
-        <ul class="select-list">
-            <li class="select-item"><button data-filter="all">All</button></li>
-            <li class="select-item"><button data-filter="web/mobile app">Web/Mobile App</button></li>
-            <li class="select-item"><button data-filter="infographics">Infographics</button></li>
-            <li class="select-item"><button data-filter="video editing">Video Editing</button></li>
-            <li class="select-item"><button data-filter="motion graphics">Motion Graphics</button></li>
-            <li class="select-item"><button data-filter="3d art">3D Art</button></li>
-            <li class="select-item"><button data-filter="3d animations/vfx">3D Animations/VFX</button></li>
-        </ul>
-    </div>
+        <div class="portfolio-hero__stat" aria-label="<?php echo (int) $project_count; ?> projects">
+            <strong data-portfolio-count><?php echo (int) $project_count; ?></strong>
+            <span>Projects</span>
+        </div>
+    </header>
 
+    <nav class="portfolio-filters" aria-label="Filter projects by category">
+        <div class="portfolio-filters__scroll" role="tablist">
+            <?php foreach ($categories as $slug => $meta): ?>
+            <button
+                type="button"
+                class="portfolio-filter filter-item<?php echo $slug === 'all' ? ' is-active active' : ''; ?>"
+                data-filter="<?php echo htmlspecialchars($slug, ENT_QUOTES, 'UTF-8'); ?>"
+                role="tab"
+                aria-selected="<?php echo $slug === 'all' ? 'true' : 'false'; ?>"
+            >
+                <ion-icon name="<?php echo htmlspecialchars($meta['icon'], ENT_QUOTES, 'UTF-8'); ?>" aria-hidden="true"></ion-icon>
+                <?php echo htmlspecialchars($meta['label'], ENT_QUOTES, 'UTF-8'); ?>
+            </button>
+            <?php endforeach; ?>
+        </div>
 
-<section class="projects">
+        <div class="portfolio-filters__mobile filter-select-box">
+            <div class="filter-select" data-select>
+                <span class="select-value">All work</span>
+                <ion-icon name="chevron-down" aria-hidden="true"></ion-icon>
+            </div>
+            <ul class="select-list">
+                <?php foreach ($categories as $slug => $meta): ?>
+                <li class="select-item">
+                    <button type="button" data-filter="<?php echo htmlspecialchars($slug, ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php echo htmlspecialchars($meta['label'], ENT_QUOTES, 'UTF-8'); ?>
+                    </button>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    </nav>
 
-    <!-- List of projects -->
-    <ul class="project-list">
-    <?php if ($all_data): ?>
-        <?php foreach ($all_data as $row): ?>
-            <li class="project-item active" data-category="<?php echo htmlspecialchars($row['category']); ?>">
+    <?php if (!empty($portfolio_error)): ?>
+    <p class="portfolio-error" role="alert">
+        <ion-icon name="alert-circle-outline" aria-hidden="true"></ion-icon><br>
+        <?php echo htmlspecialchars($portfolio_error, ENT_QUOTES, 'UTF-8'); ?>
+    </p>
+    <?php else: ?>
+
+    <ul class="project-list portfolio-grid">
+        <?php if ($all_data): ?>
+            <?php foreach ($all_data as $row): ?>
+            <?php
+            $catSlug = (string) ($row['category'] ?? '');
+            $catLabel = pf_category_label($catSlug, $categories);
+            ?>
+            <li
+                class="project-item active is-visible"
+                data-category="<?php echo htmlspecialchars($catSlug, ENT_QUOTES, 'UTF-8'); ?>"
+            >
                 <?php if (isset($row['id'])): ?>
-                    <a href="#" class="open-overlay" data-project-id="<?php echo $row['id']; ?>">
-                        <figure class="project-img">
-                            <div class="project-item-icon-box">
-                                <ion-icon name="eye-outline"></ion-icon>
-                            </div>
-                            <div class="img-wrapper" style="background-image: url('<?php echo htmlspecialchars($row['thumbnail']); ?>');"></div>
-                        </figure>
-                        <h3 class="project-title"><?php echo htmlspecialchars($row['title']); ?></h3>
-                        <p class="project-category"><?php echo htmlspecialchars($row['subtitle']); ?></p>
-                    </a>
+                <a
+                    href="#"
+                    class="open-overlay pf-card"
+                    data-project-id="<?php echo (int) $row['id']; ?>"
+                    aria-label="View <?php echo htmlspecialchars((string) $row['title'], ENT_QUOTES, 'UTF-8'); ?>"
+                >
+                    <figure class="project-img pf-card__media">
+                        <div
+                            class="img-wrapper"
+                            style="background-image: url('<?php echo htmlspecialchars((string) $row['thumbnail'], ENT_QUOTES, 'UTF-8'); ?>')"
+                        ></div>
+                        <figcaption class="pf-card__overlay">
+                            <span class="pf-card__tag"><?php echo htmlspecialchars($catLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+                            <h3 class="project-title pf-card__title"><?php echo htmlspecialchars((string) $row['title'], ENT_QUOTES, 'UTF-8'); ?></h3>
+                            <?php if (!empty($row['subtitle'])): ?>
+                            <p class="project-category pf-card__sub"><?php echo htmlspecialchars((string) $row['subtitle'], ENT_QUOTES, 'UTF-8'); ?></p>
+                            <?php endif; ?>
+                            <span class="pf-card__cta">
+                                View project
+                                <ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon>
+                            </span>
+                        </figcaption>
+                    </figure>
+                </a>
                 <?php else: ?>
-                    <p>Project data is incomplete.</p>
+                <p class="portfolio-empty">Incomplete project data.</p>
                 <?php endif; ?>
             </li>
-        <?php endforeach; ?>
-    <?php else: ?>
-        <li>No projects found.</li>
-    <?php endif; ?>
-</ul>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </ul>
 
+    <p class="portfolio-empty" data-portfolio-empty hidden>
+        <ion-icon name="images-outline" aria-hidden="true"></ion-icon><br>
+        No projects in this category yet.
+    </p>
+
+    <?php if (!$all_data): ?>
+    <p class="portfolio-empty is-shown">
+        <ion-icon name="folder-open-outline" aria-hidden="true"></ion-icon><br>
+        No projects published yet. Check back soon.
+    </p>
+    <?php endif; ?>
+
+    <?php endif; ?>
 </section>
 
-<!-- modalover Container -->
-<div class="modalover-container" id="modaloverContainer">
+<div class="modalover-container" id="modaloverContainer" role="dialog" aria-modal="true" aria-label="Project details">
     <div class="testimonials-modalover">
-        <button class="modalover-close-btn" id="closemodalover">&times;</button>
-        <div class="modalover-content">
-            <!-- Content will be injected here via JavaScript -->
-        </div>
+        <button type="button" class="modalover-close-btn" id="closemodalover" aria-label="Close">&times;</button>
+        <div class="modalover-content"></div>
     </div>
     <div class="overlaypage" id="overlaypage"></div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const projectLinks = document.querySelectorAll('.open-overlay');
-    const modaloverContainer = document.getElementById('modaloverContainer');
-    const overlaypage = document.getElementById('overlaypage');
-    const closemodaloverButton = document.getElementById('closemodalover');
-    const filterButtons = document.querySelectorAll('.filter-list button');
-    const dropdownButtons = document.querySelectorAll('.select-item button');
-    const projectItems = document.querySelectorAll('.project-item');
-    const selectBox = document.querySelector('.filter-select');
-    const selectList = document.querySelector('.select-list');
-    const selectValue = document.querySelector('.select-value');
-
-    // Function to apply filter
-    function applyFilter(category) {
-        projectItems.forEach(item => {
-            const itemCategory = item.getAttribute('data-category').toLowerCase();
-            item.style.display = (category === 'all' || itemCategory === category) ? 'block' : 'none';
-        });
-    }
-
-    // Set active button styles
-    function setActiveButton(buttons, category) {
-        buttons.forEach(button => {
-            button.classList.toggle('active', button.getAttribute('data-filter') === category);
-        });
-    }
-
-    // Desktop filter click event
-    filterButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const category = this.getAttribute('data-filter');
-            applyFilter(category);
-            setActiveButton(filterButtons, category);
-        });
-    });
-
-    // Mobile dropdown filter click events
-    dropdownButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const category = this.getAttribute('data-filter');
-            applyFilter(category);
-            setActiveButton(dropdownButtons, category);
-            selectValue.textContent = this.textContent; // Update the selected value in the dropdown
-            selectBox.classList.remove('active'); // Close the dropdown
-        });
-    });
-
-    // Toggle dropdown visibility on mobile
-    selectBox.addEventListener('click', function(event) {
-        event.stopPropagation(); // Prevent the click from bubbling to document
-        selectBox.classList.toggle('active');
-    });
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(event) {
-        if (!selectBox.contains(event.target)) {
-            selectBox.classList.remove('active');
-        }
-    });
-
-    // Function to close the overlay
-    function closemodalover() {
-        modaloverContainer.classList.remove('active');
-        overlaypage.classList.remove('active');
-        document.body.style.overflow = ''; // Enable scrolling
-        document.querySelector('.testimonials-modalover .modalover-content').innerHTML = ''; // Clear content
-    }
-
-    closemodaloverButton.addEventListener('click', closemodalover);
-    overlaypage.addEventListener('click', closemodalover);
-
-    // Function to open the overlay
-    function openmodalover() {
-        modaloverContainer.classList.add('active');
-        overlaypage.classList.add('active');
-        document.body.style.overflow = 'hidden'; // Disable scrolling
-    }
-
-    // Attach event listeners to project links
-    projectLinks.forEach(link => {
-        link.addEventListener('click', function(event) {
-            event.preventDefault();
-            const projectId = this.getAttribute('data-project-id');
-            
-            // Fetch project details using AJAX
-            fetch(`overlay.php?id=${projectId}`)
-                .then(response => response.text())
-                .then(html => {
-                    document.querySelector('.testimonials-modalover .modalover-content').innerHTML = html;
-                    openmodalover();
-                })
-                .catch(error => console.error('Error loading project details:', error));
-        });
-    });
-});
-</script>
-
-</body>
-</html>
